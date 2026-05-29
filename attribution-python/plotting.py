@@ -26,7 +26,7 @@ def mask_ocean(input_xr):
     masked_xr = input_xr.where(land_mask==0, np.nan)
     return masked_xr
 
-def create_multiplot(nrows, ncols, plot_fontsize, title_size, figsize, plot_extent, plot_list, shapefile, shapefile_linewidth, col_titles, col_titles_all_rows_switch, cmap_list, cbar_labels, cbar_nticks, cbar_x_y_loc, cbar_extensions, cbar_width, cbar_height, cbar_mins=None, cbar_maxs=None):
+def create_multiplot(nrows, ncols, plot_fontsize, title_size, figsize, plot_extent, plot_marker, plot_list, shapefile, shapefile_linewidth, col_titles, col_titles_all_rows_switch, cmap_list, cbar_labels, cbar_nticks, cbar_tick_labels, cbar_x_y_loc, cbar_extensions, cbar_width, cbar_height, cbar_mins=None, cbar_maxs=None):
     """
     Inputs:
     - nrows: integer number of rows to plot
@@ -35,6 +35,7 @@ def create_multiplot(nrows, ncols, plot_fontsize, title_size, figsize, plot_exte
     - title_size: integer number of title fontsize
     - figsize: tuple of figure dimensions 
     - plot_extent: list of lat/lon mins and maxs in format [lon_min, lon_max, lat_min, lat_max]
+    - plot_marker: tuple of lat/lon (optional)
     - plot_list: list of data to plot in format [[row1_data], [row2_data], etc]
     - shapefile: str file location of shapefile
     - shapefile_linewidth: int linewidth of shapefile plot feature
@@ -43,6 +44,7 @@ def create_multiplot(nrows, ncols, plot_fontsize, title_size, figsize, plot_exte
     - cmap_list: list of cmaps for each row e.g. ['viridis', 'plasma', etc]
     - cbar_labels: list of string labels for each row's colourbar
     - cbar_nticks: integer number of ticks for cbar
+    - cbar_tick_labels: list of labels for cbar ticks (if not numerical)
     - cbar_x_y_loc: tuple for starting xy position for cbar
     - cbar_extensions: list of string extension information for each row's colourbar e.g. ['max', 'both', etc]
     - cbar_width: float width of each cbar
@@ -68,22 +70,30 @@ def create_multiplot(nrows, ncols, plot_fontsize, title_size, figsize, plot_exte
     else:
         axes = np.array([axes])
     
-    shapefile_feature = ShapelyFeature(gpd.read_file(shapefile).geometry, ccrs.PlateCarree()) if shapefile != None else None
-
+    if shapefile == 'NRM':
+        shapefile_feature = ShapelyFeature(gpd.read_file('/g/data/ia39/aus-ref-clim-data-nci/shapefiles/data/nrm_regions/nrm_regions.shp').dissolve(by="ClusterAb").geometry, ccrs.PlateCarree())
+    else:
+        shapefile_feature = ShapelyFeature(gpd.read_file(shapefile).geometry, ccrs.PlateCarree()) if shapefile != None else None
+    
     for row_idx, row_data in enumerate(plot_list):
         for col_idx, data in enumerate(row_data):
             ax = axes[row_idx * ncols + col_idx]
             cmap = cmap_list[row_idx] if cmap_list and isinstance(cmap_list, list) else None 
             im = data.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cmap, vmin=cbar_mins[row_idx], vmax=cbar_maxs[row_idx], add_colorbar=False)
+            if plot_marker != None:
+                ax.plot(plot_marker[1], plot_marker[0], marker='*', color='black', markersize=15, transform=ccrs.PlateCarree(), zorder=10)
             ax.add_feature(cfeature.COASTLINE)
             ax.add_feature(cfeature.BORDERS, linestyle=':')
-            ax.add_feature(shapefile_feature, facecolor='none', edgecolor='black', linewidth=shapefile_linewidth, zorder=6)
+            if shapefile != None:
+                ax.add_feature(shapefile_feature, facecolor='none', edgecolor='black', linewidth=shapefile_linewidth, zorder=6)
             ax.set_title(f'{col_titles[col_idx]}' if (col_titles_all_rows_switch or row_idx == 0) else '', fontweight='bold', fontsize=title_size, pad=10)
             ax.set_extent(plot_extent)
 
-        cbar_ax = fig.add_axes([cbar_x_y_loc[0], cbar_x_y_loc[1] * (nrows-1-row_idx), cbar_width, cbar_height]) if nrows != 1 else fig.add_axes([cbar_x_y_loc[0], cbar_x_y_loc[1], cbar_width, cbar_height])
+        cbar_ax = fig.add_axes([cbar_x_y_loc[0], cbar_x_y_loc[1] + cbar_x_y_loc[2] * (nrows-1-row_idx), cbar_width, cbar_height]) if nrows != 1 else fig.add_axes([cbar_x_y_loc[0], cbar_x_y_loc[1], cbar_width, cbar_height])
         # cbar_ax = fig.add_axes([0.92, 0.05 + 0.45 * (nrows-1-row_idx), cbar_width, 0.4])
-        fig.colorbar(im, cax=cbar_ax, orientation='vertical', label=cbar_labels[row_idx] if cbar_labels else '', extend=cbar_extensions[row_idx], ticks=MaxNLocator(nbins=cbar_nticks[row_idx]))
+        cbar = fig.colorbar(im, cax=cbar_ax, orientation='vertical', label=cbar_labels[row_idx] if cbar_labels else '', extend=cbar_extensions[row_idx], ticks=MaxNLocator(nbins=cbar_nticks[row_idx]))
+        if cbar_tick_labels != None:
+            cbar.ax.set_yticklabels(cbar_tick_labels)
 
 
     plt.tight_layout(pad=1.0)

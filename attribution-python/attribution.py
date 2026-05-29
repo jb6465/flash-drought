@@ -14,7 +14,7 @@
 ############################################################################################
 '''
 
-def compute_ET0(Rs, T, Tmax, Tmin, Tdew, Patm, U, q, RHmean, RHmax, RHmin, elev, **kwargs):
+def compute_ref_ET(Rs, T, Tmax, Tmin, Tdew, Patm, U, q, RHmean, RHmax, RHmin, elev, **kwargs):
     """
     Inputs:
     Arrays (surface daily aggregated from hourly) 
